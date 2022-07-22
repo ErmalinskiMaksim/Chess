@@ -106,7 +106,11 @@ void PieceType::checkIfIsPinned()
 							}
 					}
 					else
-						return;
+					{
+						s_positionInfo.emplace(m_coordinates, this); 
+
+						break;
+					}
 				}
 				else // the king (unlike the others) needs to look through all the opponent's pieces
 				{
@@ -119,9 +123,6 @@ void PieceType::checkIfIsPinned()
 					positionInfo.second->eraseDangerousCells(m_coordinates, kingPos);
 				}
 			}
-
-		// if it's not the king and it's not pinned
-		s_positionInfo.try_emplace(m_coordinates, this); 
 
 		// removes all the moves containing pieces of the same colour
 		std::erase_if(m_possibleMoves, [this](const auto& move) {return (this->s_positionInfo.contains(move) && this->s_positionInfo.at(move)->getColour() == this->m_teamColour); });

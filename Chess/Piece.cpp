@@ -90,7 +90,7 @@ void Piece::update()
 	{
 		m_type->m_coordinates.convertToBoard(m_sprite.getPosition()); // update coordinates
 
-		if (!m_type->s_positionInfo.contains(m_type->m_coordinates)) // there's no one at its coordinates in the map, it inserts itself (needed for the first turn)
+		if (!m_type->s_positionInfo.contains(m_type->m_coordinates)) // there's no one at its coordinates in the map, it inserts itself
 		{
 			m_type->s_positionInfo.emplace(m_type->m_coordinates, m_type);
 		}
