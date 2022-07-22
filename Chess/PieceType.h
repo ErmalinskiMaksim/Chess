@@ -20,17 +20,26 @@ public:
 	PieceType() : m_movesFirstTime(true), m_possibleMoves(0){}
 	virtual ~PieceType(){}
 
+	// getters
 	virtual TeamColour getColour() const;
 	virtual const char* getDirectory() const;
 	virtual const char* getName()const;
 	virtual bool isFirstTime() const;
 
+	//setters
 	virtual void setFirstTime(bool b);
 
+	// the name says it all
 	virtual void checkTheKing(); 
-	virtual void checkIfMyKingIsChecked(); // I adore the name of this function
-	virtual void checkIfIsPinned();// if it's pinned it removes the illegal moves
-	virtual void calculatePossibleMoves() = 0; // calculates all moves (including illegal)
+
+	// I adore the name of this function
+	virtual void checkIfMyKingIsChecked(); 
+
+	// if it's pinned it removes the illegal moves
+	virtual void checkIfIsPinned();
+
+	// calculates all moves (including illegal)
+	virtual void calculatePossibleMoves() = 0;
 	
 public:
 	struct Coordinates
@@ -43,15 +52,27 @@ public:
 		bool operator==(const Coordinates c)const;
 		int x, y;
 	}m_coordinates; // coordinates on the board
-	std::vector<PieceType::Coordinates> m_possibleMoves; // piece's avilable moves
 
-	static std::map<PieceType::Coordinates, PieceType*> s_positionInfo; // a map which contains all pieces on the board
-	static std::vector<PieceType::Coordinates> s_dangerousPieces; // pieces that check the king
-	static std::pair<bool, TeamColour> s_checkedKing; // the currently checked king
+	// piece's avilable moves
+	std::vector<PieceType::Coordinates> m_possibleMoves; 
+
+	// a map which contains all pieces on the board
+	static std::map<PieceType::Coordinates, PieceType*> s_positionInfo; 
+
+	// pieces that check the king
+	static std::vector<PieceType::Coordinates> s_dangerousPieces; 
+
+	// the currently checked king
+	static std::pair<bool, TeamColour> s_checkedKing; 
 
 protected:
-	virtual void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos) = 0; // erases illegal moves 
-	virtual PieceType::Coordinates findMyKingPosition(); // finds the king position
+
+	// erases illegal moves (both when the king is checked and when safe)
+	virtual void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos) = 0;
+
+	// finds the king position
+	virtual PieceType::Coordinates findMyKingPosition(); 
+
 protected:
 	const char* m_name;
 	const char* m_textureDirectory;
@@ -66,7 +87,7 @@ class Pawn : public PieceType
 public:
 	Pawn(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 class Rook : public PieceType
@@ -74,7 +95,7 @@ class Rook : public PieceType
 public:
 	Rook(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 class Knight : public PieceType
@@ -82,7 +103,7 @@ class Knight : public PieceType
 public:
 	Knight(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 class Bishop : public PieceType
@@ -90,7 +111,7 @@ class Bishop : public PieceType
 public:
 	Bishop(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 class Queen : public PieceType
@@ -98,7 +119,7 @@ class Queen : public PieceType
 public:
 	Queen(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 class King : public PieceType
@@ -106,7 +127,7 @@ class King : public PieceType
 public:
 	King(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defendor, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
 };
 
 #endif
