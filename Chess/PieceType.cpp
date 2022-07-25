@@ -51,25 +51,14 @@ void PieceType::checkTheKing()
 	}
 }
 
-void PieceType::checkIfMyKingIsChecked()
+void PieceType::tryToPreventCheck()
 {
-	// if it's the king of this piece's team, then it gets executed
-	if(s_checkedKing.first && s_checkedKing.second == m_teamColour)
+	// if the king of this piece's team is checked
+	if(s_checkedKing.first && s_checkedKing.second == m_teamColour && m_name != "King")
 	{
-		PieceType::Coordinates kingPos = findMyKingPosition();
-
-		// if it's a double check then erase all the moves of every piece except for the king
-		if (s_dangerousPieces.size() > 1 && kingPos != m_coordinates)
-			m_possibleMoves.clear();
-		else 
-			for (auto&& threat : s_dangerousPieces)
-			{
-				// finds an escape for a king or square to prevent the check
-				s_positionInfo.at(threat)->eraseDangerousCells(m_coordinates, kingPos); 
-
-				if (m_possibleMoves.empty())
-					break;
-			}
+		// if it's a double check then erases all moves, else tries preventing the check
+		(s_dangerousPieces.size() > 1) ? m_possibleMoves.clear()
+			: s_positionInfo.at(s_dangerousPieces[0])->eraseDangerousCells(m_possibleMoves, findMyKingPosition(), false);		
 	}
 }
 
@@ -83,73 +72,56 @@ void PieceType::checkIfIsPinned()
 	{
 		PieceType::Coordinates kingPos = findMyKingPosition();
 
+		// no need to emplace the piece back because it's done in update()
+		s_positionInfo.erase(m_coordinates);
+
 		for (auto&& positionInfo : s_positionInfo) // looks through the pieces
 			if (positionInfo.second->getColour() != m_teamColour) // finds the opposite team's
 			{
-				s_positionInfo.erase(m_coordinates);
 				positionInfo.second->calculatePossibleMoves(); // calculates the new set of moves without our concrete piece
 
-				if (m_coordinates != kingPos) // not the king, namely: a queen, a bishop or a rook
+				if (kingPos != m_coordinates) // not a king
 				{
-					// proceeds only if the king is not checked
-					// if the king is checked these operations are useless
+					// if the king is checked these operations are useless, so it quits
 					if (!s_checkedKing.first)
 					{
+						// checks if king is reachable without our piece
 						for (auto&& enemyMove : positionInfo.second->m_possibleMoves)
-							if (enemyMove == kingPos) // checks if king is reachable without our piece 
-							{
-								s_positionInfo.emplace(m_coordinates, this);
-
-								positionInfo.second->eraseDangerousCells(m_coordinates, kingPos);
-
-								return;
-							}
+							if (enemyMove == kingPos)  
+								return positionInfo.second->eraseDangerousCells(m_possibleMoves, kingPos, false);
 					}
 					else
-					{
-						s_positionInfo.emplace(m_coordinates, this); 
-
 						break;
-					}
 				}
-				else // the king (unlike the others) needs to look through all the opponent's pieces
+				else // a king (unlike the others) needs to look through all the opponent's pieces (regardless of being checked)
 				{
-					// this section needs to be executed regardless of whether the king is checked or not.
-					// when the king is safe it removes protected cells from its possible moves list
-					// when he's checked, the code prevents him from doing illegal moves, for instance
-					// |Rook| | | |King| | | |(move to the right is illegal) 
-					s_positionInfo.emplace(m_coordinates, this);
-
-					positionInfo.second->eraseDangerousCells(m_coordinates, kingPos);
+					positionInfo.second->eraseDangerousCells(m_possibleMoves, m_coordinates, true);
 				}
 			}
 
-		// removes all the moves containing pieces of the same colour
+		// removes all the moves containing pieces of the same colour.
+		// I put it here because eraseDangerousCells() needs these moves to be present
+		// in order not to let the king attack protected enemy piececs.
 		std::erase_if(m_possibleMoves, [this](const auto& move) {return (this->s_positionInfo.contains(move) && this->s_positionInfo.at(move)->getColour() == this->m_teamColour); });
 	}	
 }
 
 PieceType::Coordinates PieceType::findMyKingPosition()
 {
-	if (m_name != "King")
-	{
-		for (auto&& a : s_positionInfo)
-			if (a.second->getName() == "King" && a.second->getColour() == m_teamColour)
+	for (auto&& a : s_positionInfo)
+		if (a.second->getName() == "King" && a.second->getColour() == m_teamColour)
 				return a.first;
-	}
-	else
-		return m_coordinates;
 }
 
 void PieceType::Coordinates::convertToBoard(sf::Vector2f position)
 {
-	x = std::floor(position.x / SQUARE_WIDTH);
-	y = 7 - std::floor(position.y / SQUARE_HEIGHT);
+	x = static_cast<int>(position.x / SQUARE_WIDTH);
+	y = 7 - static_cast<int>(position.y / SQUARE_HEIGHT);
 }
 
-sf::Vector2f PieceType::Coordinates::convertToPosition(sf::Vector2i coordinates)
+sf::Vector2f PieceType::Coordinates::convertToPosition(int x, int y)
 {
-	return sf::Vector2f(coordinates.x * SQUARE_WIDTH, (7 - coordinates.y) * SQUARE_HEIGHT);
+	return { x * SQUARE_WIDTH, (7 - y) * SQUARE_HEIGHT };
 }
 
 bool PieceType::Coordinates::operator<(const Coordinates c) const
@@ -206,13 +178,13 @@ void Pawn::calculatePossibleMoves()
 	}
 }
 
-void Pawn::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void Pawn::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {
 	// the method is called when the king is checked by this pawn 
-	std::erase_if(s_positionInfo.at(defender)->m_possibleMoves, [this, defender, kingPos](const auto& item) {
+	std::erase_if(possibleMoves, [this, isKing](const auto& item) {
 		auto const& [x, y] = item;
 		// if it's the king, it removes only the moves where the pawn attacks; if it's not the king, it removes everything except for the position of the pawn
-		return ((std::abs(x - this->m_coordinates.x) == 1 && y == (this->m_coordinates.y + 2 * (int)this->m_teamColour - 1) && defender == kingPos) || item != this->m_coordinates && defender != kingPos);
+		return ((std::abs(x - this->m_coordinates.x) == 1 && y == (this->m_coordinates.y + 2 * (int)this->m_teamColour - 1) && isKing) || item != this->m_coordinates && !isKing);
 	});
 }
 
@@ -248,11 +220,11 @@ void Rook::calculatePossibleMoves()
 	for (int i = m_coordinates.y + 1; i <= 7 && addMoves(m_coordinates.x, i); ++i){}
 }
 
-void Rook::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void Rook::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {	 // a piece is pinned or tries to prevent a check
-	if (defender != kingPos)
+	if (!isKing)
 	{
-		std::erase_if(s_positionInfo.at(defender)->m_possibleMoves, [this, kingPos](const auto& item) {
+		std::erase_if(possibleMoves, [this, kingPos](const auto& item) {
 			auto const& [xMove, yMove] = item; 
 			// does big-brain computations
 			return !((xMove == kingPos.x && this->m_coordinates.x == kingPos.x && (yMove < kingPos.y && yMove >= this->m_coordinates.y || yMove > kingPos.y && yMove <= this->m_coordinates.y))
@@ -262,7 +234,7 @@ void Rook::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coord
 	else if(std::abs(kingPos.x - m_coordinates.x) <= 1 || std::abs(kingPos.y - m_coordinates.y) <= 1)
 	{
 		// removes intercepting moves
-		std::erase_if(s_positionInfo.at(kingPos)->m_possibleMoves, [this](const auto& item) {
+		std::erase_if(possibleMoves, [this](const auto& item) {
 			for (auto&& move : this->m_possibleMoves)
 				if (item == move)
 					return true;
@@ -307,19 +279,19 @@ void Knight::calculatePossibleMoves()
 	addMoves(m_coordinates.x + 2, m_coordinates.y - 1);
 }
 
-void Knight::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void Knight::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {
 	// the only condition when the knight can check the king/attack nearby squares
 	if (std::abs(kingPos.x - m_coordinates.x) <= 3 && std::abs(kingPos.y - m_coordinates.y) <= 3)
 	{
-		std::erase_if(s_positionInfo.at(defender)->m_possibleMoves, [this, defender, kingPos](const auto& item) {
-			if(defender == kingPos) // removes the intercepting squares (including the protected pieces) for the king
+		std::erase_if(possibleMoves, [this, isKing](const auto& item) {
+			if(isKing) // removes the intercepting squares (including the protected pieces) for the king
 				for (auto&& move : this->m_possibleMoves)
 					if (item == move)
 						return true;
 
 			//if its not the king it just leaves its own position
-			return (defender != kingPos && item != this->m_coordinates);
+			return (!isKing && item != this->m_coordinates);
 		});
 	}
 }
@@ -356,11 +328,11 @@ void Bishop::calculatePossibleMoves()
 	for (int i = m_coordinates.x + 1, j = m_coordinates.y - 1; i <= 7 && j >= 0 && addMoves(i, j); i++, j--){}
 }
 
-void Bishop::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void Bishop::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {
-	if (defender != kingPos) // if a piece is pinned or tries to prevent a check
+	if (!isKing) // if a piece is pinned or tries to prevent a check
 	{
-		std::erase_if(s_positionInfo.at(defender)->m_possibleMoves, [this, kingPos](const auto& move) {
+		std::erase_if(possibleMoves, [this, kingPos](const auto& move) {
 			auto const& [xMove, yMove] = move;
 			// ultra big-brain computations
 			return !(((this->m_coordinates.x + this->m_coordinates.y == xMove + yMove) && (kingPos.x + kingPos.y == xMove + yMove)
@@ -370,7 +342,7 @@ void Bishop::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coo
 	}
 	else // if the king is checked (or not) and deletes illegal moves
 	{
-		std::erase_if(s_positionInfo.at(kingPos)->m_possibleMoves, [this, kingPos](const auto& item) {
+		std::erase_if(possibleMoves, [this](const auto& item) {
 			for (auto&& move : this->m_possibleMoves)
 				if (item == move)
 					return true;
@@ -417,11 +389,11 @@ void Queen::calculatePossibleMoves()
 	for (int i = m_coordinates.y + 1; i <= 7 && addMoves(m_coordinates.x, i); ++i){}
 }
 
-void Queen::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void Queen::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {
-	if (defender != kingPos) // if a piece is pinned or tries to prevent a check
+	if (!isKing) // if a piece is pinned or tries to prevent a check
 	{
-		std::erase_if(s_positionInfo.at(defender)->m_possibleMoves, [this, defender, kingPos](const auto& move) {
+		std::erase_if(possibleMoves, [this, kingPos](const auto& move) {
 			auto const& [xMove, yMove] = move;
 			// a combination of bishop's and rook's big-brain computations
 			if (kingPos.x == m_coordinates.x || kingPos.y == m_coordinates.y)
@@ -435,7 +407,7 @@ void Queen::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coor
 	}
 	else  // if the king is checked (or not) and deletes illegal moves
 	{
-		std::erase_if(s_positionInfo.at(kingPos)->m_possibleMoves, [this](const auto& item) {
+		std::erase_if(possibleMoves, [this](const auto& item) {
 			for (auto&& move : this->m_possibleMoves)
 				if (item == move)
 					return true;
@@ -477,12 +449,12 @@ void King::calculatePossibleMoves()
 	}
 }
 
-void King::eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)
+void King::eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)
 {
+	// needs to be executed only if two kings stand one next to another
 	if (std::abs(kingPos.x - m_coordinates.x) <= 2 && std::abs(kingPos.y - m_coordinates.y) <= 2)
-	{
-		// this part gets executed only if two kings stand one next to another
-		std::erase_if(s_positionInfo.at(kingPos)->m_possibleMoves, [this](const auto& item) {
+	{	
+		std::erase_if(possibleMoves, [this](const auto& item) {
 			auto const& [x, y] = item;
 			return (std::abs(x - this->m_coordinates.x) <= 1 && std::abs(y - this->m_coordinates.y) <= 1); 
 		});

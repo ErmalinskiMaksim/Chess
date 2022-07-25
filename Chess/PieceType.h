@@ -4,7 +4,6 @@
 
 #include "SFML/System/Vector2.hpp"
 #include "Constants.h"
-#include <cmath>
 #include <map>
 #include <vector>
 #include <array>
@@ -32,8 +31,8 @@ public:
 	// the name says it all
 	virtual void checkTheKing(); 
 
-	// I adore the name of this function
-	virtual void checkIfMyKingIsChecked(); 
+	// checks if can prevent a check
+	virtual void tryToPreventCheck(); 
 
 	// if it's pinned it removes the illegal moves
 	virtual void checkIfIsPinned();
@@ -47,7 +46,7 @@ public:
 		Coordinates(){}
 		Coordinates(int x, int y) : x(x), y(y){}
 		void convertToBoard(sf::Vector2f position);
-		sf::Vector2f convertToPosition(sf::Vector2i coordinates);
+		sf::Vector2f convertToPosition(int x, int y);
 		bool operator<(const Coordinates c)const;
 		bool operator==(const Coordinates c)const;
 		int x, y;
@@ -68,7 +67,7 @@ public:
 protected:
 
 	// erases illegal moves (both when the king is checked and when safe)
-	virtual void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos) = 0;
+	virtual void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing) = 0;
 
 	// finds the king position
 	virtual PieceType::Coordinates findMyKingPosition(); 
@@ -87,7 +86,7 @@ class Pawn : public PieceType
 public:
 	Pawn(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 class Rook : public PieceType
@@ -95,7 +94,7 @@ class Rook : public PieceType
 public:
 	Rook(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 class Knight : public PieceType
@@ -103,7 +102,7 @@ class Knight : public PieceType
 public:
 	Knight(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 class Bishop : public PieceType
@@ -111,7 +110,7 @@ class Bishop : public PieceType
 public:
 	Bishop(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 class Queen : public PieceType
@@ -119,7 +118,7 @@ class Queen : public PieceType
 public:
 	Queen(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 class King : public PieceType
@@ -127,7 +126,7 @@ class King : public PieceType
 public:
 	King(TeamColour tc);
 	void calculatePossibleMoves()override;
-	void eraseDangerousCells(PieceType::Coordinates defender, PieceType::Coordinates kingPos)override;
+	void eraseDangerousCells(std::vector<PieceType::Coordinates>& possibleMoves, const PieceType::Coordinates& kingPos, bool isKing)override;
 };
 
 #endif

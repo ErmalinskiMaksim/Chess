@@ -39,14 +39,12 @@ void NewGameState::initializeTeams()
 		for (int i = 0; i < 8; ++i)
 		{
 			team[i].setPosition({ i * SQUARE_WIDTH, (WINDOW_HEIGHT - SQUARE_HEIGHT) * (int)colour });
-			team[i].setTexture(team[i].getType()->getDirectory());
 		}
 
 		for (int i = 8; i < 16; ++i)
 		{
 			team[i].setType(new Pawn(colour));
 			team[i].setPosition({ (i - 8) * SQUARE_WIDTH, (int)colour * (WINDOW_HEIGHT - 3 * SQUARE_HEIGHT) + SQUARE_HEIGHT });
-			team[i].setTexture(team[i].getType()->getDirectory());
 		}
 	};
 
@@ -57,6 +55,21 @@ void NewGameState::initializeTeams()
 void NewGameState::processTeamInput(sf::Event& event, Window& window)
 {
 	Piece::s_isTurnOver = false;
+
+	if (m_teamThatMoves == TeamColour::BLACK)
+	{
+		for (auto&& a : m_teamBlack)
+			a.processEvents(event, window);
+	}
+	else
+	{
+		for (auto&& a : m_teamWhite)
+			a.processEvents(event, window);
+	}
+}
+
+void NewGameState::updateTeams()
+{
 	auto noMoves = [](std::array<Piece, 16>& team)
 	{
 		for (auto&& a : team)
@@ -66,27 +79,31 @@ void NewGameState::processTeamInput(sf::Event& event, Window& window)
 		return true;
 	};
 
-
 	if (m_teamThatMoves == TeamColour::BLACK)
 	{
 		for (auto&& a : m_teamBlack)
-			a.processEvents(event, window);
+			a.update();
 
-		if(Piece::s_isTurnOver)
+		for (auto&& a : m_teamWhite)
+			a.update();
+
+		if (Piece::s_isTurnOver)
 			m_teamThatMoves = TeamColour::WHITE;
 		else if (noMoves(m_teamBlack))
 		{
 			m_isGameOver = true;
 			std::cout << "WHITE WINS\n";
 		}
-
 	}
 	else
 	{
 		for (auto&& a : m_teamWhite)
-			a.processEvents(event, window);
+			a.update();
 
-		if(Piece::s_isTurnOver)
+		for (auto&& a : m_teamBlack)
+			a.update();
+
+		if (Piece::s_isTurnOver)
 			m_teamThatMoves = TeamColour::BLACK;
 		else if (noMoves(m_teamWhite))
 		{
@@ -94,15 +111,6 @@ void NewGameState::processTeamInput(sf::Event& event, Window& window)
 			std::cout << "BLACK WINS\n";
 		}
 	}
-}
-
-void NewGameState::updateTeams()
-{
-	for (auto&& a : m_teamBlack)
-		a.update();
-
-	for (auto&& a : m_teamWhite)
-		a.update();
 }
 
 void NewGameState::displayTeams(Window& window)

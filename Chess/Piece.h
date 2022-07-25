@@ -16,10 +16,16 @@ public:
 	void display(Window& window) override;
 
 	PieceType* getType() const;
+
+	// !!!!! sets type AND texture
 	void setType(PieceType* type);
 
 	static bool s_isTurnOver;
 	
+private:
+	void checkForEnPassant();
+	void checkForPromotion(sf::Event& event, Window& window);
+	void checkForCastling();
 private:
 
 	std::vector<sf::RectangleShape> m_availableCells;

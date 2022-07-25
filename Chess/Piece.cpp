@@ -32,11 +32,12 @@ void Piece::processEvents(sf::Event& event, Window& window)
 				m_selected = true;
 				s_anyPiecesSelected = true;
 
+				sf::RectangleShape cell({ SQUARE_WIDTH, SQUARE_HEIGHT });
+				cell.setFillColor({ 200, 0, 128, 100 });
+
 				for (auto&& a : m_type->m_possibleMoves) // fills in available moves
 				{
-					sf::RectangleShape cell({ SQUARE_WIDTH, SQUARE_HEIGHT });
-					cell.setPosition(m_type->m_coordinates.convertToPosition({ a.x, a.y }));
-					cell.setFillColor({ 200, 0, 128, 100 });
+					cell.setPosition(m_type->m_coordinates.convertToPosition(a.x, a.y));
 					m_availableCells.push_back(cell);
 				}
 			}
@@ -63,9 +64,9 @@ void Piece::processEvents(sf::Event& event, Window& window)
 					m_sprite.setPosition(a.getPosition()); // sets new coordinates
 					m_type->m_coordinates.convertToBoard(m_sprite.getPosition()); // converts them into the borad coordinates
 
-					if (m_type->s_positionInfo.contains(m_type->m_coordinates)) // if the position it's trying to move to is already occupied, it frees the square
-						m_type->s_positionInfo.erase(m_type->m_coordinates);
+					checkForPromotion(event, window);
 
+					m_type->s_positionInfo.erase(m_type->m_coordinates); // if the position it's trying to move to is already occupied, it frees it
 					m_type->s_positionInfo.emplace(m_type->m_coordinates, m_type); // puts itself at the new position 
 
 					break;
@@ -98,7 +99,7 @@ void Piece::update()
 		{
 			// if it's missing from the map at its coordinates and its place is taken, it hides itself in order not to be processed further in the game 
 			m_hiden = true;
-			m_type->m_possibleMoves.clear(); // importatnt part for determining when it's a mate
+			m_type->m_possibleMoves.clear(); // importatnt for determining when it's a mate
 			return;
 		}
 
@@ -106,9 +107,8 @@ void Piece::update()
 		{
 			m_type->calculatePossibleMoves();
 			m_type->checkTheKing();
-		}
-
-		m_type->checkIfMyKingIsChecked(); // checks if its king is safe or checked
+			m_type->tryToPreventCheck();
+		}	
 	}
 }
 
@@ -132,4 +132,73 @@ PieceType* Piece::getType() const
 void Piece::setType(PieceType* type)
 {
 	m_type = type;
+	setTexture(m_type->getDirectory());
+}
+
+void Piece::checkForEnPassant()
+{
+	if (m_type->getName() == "Pawn")
+	{
+
+	}
+}
+
+void Piece::checkForPromotion(sf::Event& event, Window& window)
+{
+	// if it's a pawn and its coordinates are on an according end of the board
+	// code smells here but I'll improve it (probably)
+	if (m_type->getName() == "Pawn" && m_type->m_coordinates.y == 7 * static_cast<int>(m_type->getColour()))
+	{
+		const float rectangleWidth = (SQUARE_WIDTH + 20.f) * 4;
+		const float rectangleHeight = SQUARE_HEIGHT + 20.f;
+
+		sf::RectangleShape rectangle({ rectangleWidth, rectangleHeight });
+		rectangle.setFillColor({ 112, 0, 112, 255 });
+		rectangle.setPosition({ ((WINDOW_WIDTH - rectangleWidth) / 2.f), (WINDOW_HEIGHT - rectangleHeight) / 2.f });
+
+		std::array<Piece, 4> promotionPieces;
+		promotionPieces[0].setType(new Rook(m_type->getColour()));
+		promotionPieces[1].setType(new Knight(m_type->getColour()));
+		promotionPieces[2].setType(new Bishop(m_type->getColour()));
+		promotionPieces[3].setType(new Queen(m_type->getColour()));
+
+		window.draw(rectangle);
+
+		for (int i = 0; i < 4; ++i)
+		{
+			promotionPieces[i].setPosition({ ((WINDOW_WIDTH - rectangleWidth) / 2.f + rectangleWidth * i / 4.f), (WINDOW_HEIGHT - rectangleHeight) / 2.f });
+			
+			window.draw(promotionPieces[i].getSprite());
+		}
+
+		window.display();
+
+		while (true)
+			if (window.waitEven(event) && event.type == sf::Event::MouseButtonPressed)
+				for (auto&& a : promotionPieces)
+					if (a.getSprite().getGlobalBounds().contains(sf::Vector2<float>(sf::Mouse::getPosition(window.getWindow()))))
+					{
+						m_type->m_possibleMoves.clear();
+						PieceType::Coordinates c = m_type->m_coordinates;
+						TeamColour colour = m_type->getColour();
+						delete m_type;
+
+						if (a.m_type->getName() == "Rook")
+							setType(new Rook(colour));
+						else if (a.m_type->getName() == "Knight")
+							setType(new Knight(colour));
+						else if (a.m_type->getName() == "Bishop")
+							setType(new Bishop(colour));
+						else if (a.m_type->getName() == "Queen")
+							setType(new Queen(colour));
+
+						m_type->m_coordinates = c;
+
+						return;
+					}
+	}
+}
+
+void Piece::checkForCastling()
+{
 }

@@ -5,9 +5,9 @@ void Game::run()
 {
 	while (m_window.isOpen())
 	{
+		display();
 		processInput();
 		update();
-		display();
 	}
 }
 
